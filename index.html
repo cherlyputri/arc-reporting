@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ARC - Admin Reporting and Certification</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="shell">
+
+  <section id="loginPage" class="page active">
+    <div class="brand-card">
+      <div class="logo">⚗️</div>
+      <h1>ARC</h1>
+      <p>Admin Reporting and Certification</p>
+      <small>Attendance • Reporting • Certification</small>
+    </div>
+    <div class="card login-card">
+      <h2>Selamat datang 👋</h2>
+      <p>Silakan login untuk melanjutkan.</p>
+      <label>Username</label>
+      <input id="username" placeholder="Masukkan username">
+      <label>Password</label>
+      <input id="password" type="password" placeholder="Masukkan password">
+      <button class="btn grad" onclick="login()">LOGIN</button>
+      <p class="hint">Demo Admin: <b>admin / admin123</b><br>Demo Staff: <b>hasan / 123456</b></p>
+    </div>
+  </section>
+
+  <section id="dashboardPage" class="page">
+    <header class="topbar">
+      <div>
+        <div class="mini">ARC</div>
+        <small>Admin Reporting and Certification</small>
+        <h2>Halo, <span id="staffName">Staff</span> 👋</h2>
+        <p>Semangat hari ini!</p>
+      </div>
+      <button class="ghost" onclick="logout()">Logout</button>
+    </header>
+
+    <div class="date-pill" id="todayText"></div>
+
+    <div class="menu-card blue" onclick="showPage('absenPage')">
+      <div class="icon">📸</div><div><b>ABSENSI MASUK</b><span>Absen kedatangan kerja</span></div><strong>›</strong>
+    </div>
+    <div class="menu-card yellow" onclick="showPage('cleanPage')">
+      <div class="icon">🧹</div><div><b>KEBERSIHAN LAB</b><span>Laporkan kebersihan area lab</span></div><strong>›</strong>
+    </div>
+    <div class="menu-card purple" onclick="showPage('reportPage')">
+      <div class="icon">📝</div><div><b>LAPORAN HARIAN</b><span>Laporkan pekerjaan harian</span></div><strong>›</strong>
+    </div>
+  </section>
+
+  <section id="absenPage" class="page">
+    <div class="section-head">
+      <button class="back" onclick="showPage('dashboardPage')">←</button>
+      <div><h2>ABSENSI MASUK</h2><small>ARC - Admin Reporting and Certification</small></div>
+    </div>
+    <div class="card">
+      <div class="notice blue-note">Ambil foto kedatangan. Nama, tanggal, dan jam terisi otomatis.</div>
+      <label class="upload-box">
+        <input id="absenPhoto" type="file" accept="image/*" capture="user" onchange="previewImage(this,'absenPreview')">
+        <img id="absenPreview" alt="Preview">
+        <span>📷 Ambil Foto</span>
+      </label>
+      <div class="info-grid">
+        <div>Nama</div><b id="absenName"></b>
+        <div>Tanggal</div><b id="absenDate"></b>
+        <div>Jam</div><b id="absenTime"></b>
+      </div>
+      <button class="btn save" onclick="saveAttendance()">💾 Simpan Absensi</button>
+      <button class="btn whatsapp" onclick="copyAndOpenWA('absen')">💬 Salin Laporan & Buka WhatsApp</button>
+    </div>
+  </section>
+
+  <section id="cleanPage" class="page">
+    <div class="section-head">
+      <button class="back" onclick="showPage('dashboardPage')">←</button>
+      <div><h2>KEBERSIHAN LAB</h2><small>ARC - Admin Reporting and Certification</small></div>
+    </div>
+    <div class="card">
+      <label>Pilih Area</label>
+      <select id="areaSelect">
+        <option>Ruangan Timbang</option>
+        <option>Office LAB</option>
+        <option>Ruangan XRF</option>
+        <option>Ruangan CV & TS</option>
+        <option>Ruangan Fuse</option>
+        <option>Ruangan Oven</option>
+        <option>Ruangan</option>
+        <option>Store Sample</option>
+        <option>Lorong</option>
+      </select>
+      <div class="notice yellow-note">Foto area yang sudah dibersihkan.</div>
+      <label class="upload-box">
+        <input id="cleanPhoto" type="file" accept="image/*" capture="environment" onchange="previewImage(this,'cleanPreview')">
+        <img id="cleanPreview" alt="Preview">
+        <span>📷 Ambil Foto Area</span>
+      </label>
+      <div class="info-grid">
+        <div>Nama</div><b id="cleanName"></b>
+        <div>Area</div><b id="cleanArea"></b>
+        <div>Tanggal</div><b id="cleanDate"></b>
+        <div>Jam</div><b id="cleanTime"></b>
+      </div>
+      <button class="btn save" onclick="saveCleaning()">💾 Simpan Kebersihan</button>
+      <button class="btn whatsapp" onclick="copyAndOpenWA('clean')">💬 Salin Laporan & Buka WhatsApp</button>
+    </div>
+  </section>
+
+  <section id="reportPage" class="page">
+    <div class="section-head">
+      <button class="back" onclick="showPage('dashboardPage')">←</button>
+      <div><h2>LAPORAN HARIAN</h2><small>ARC - Admin Reporting and Certification</small></div>
+    </div>
+    <div class="card">
+      <label>Jenis Pekerjaan</label>
+      <select id="jobType">
+        <option data-pct="6.67">Nickel Ore</option>
+        <option data-pct="3.33">Prep Basah/Kering</option>
+        <option data-pct="2.50">Ferronickel</option>
+        <option data-pct="5.00">Nickel Matte</option>
+        <option data-pct="5.12">Luppen FeNi</option>
+        <option data-pct="5.00">MHP</option>
+      </select>
+      <label>Jumlah (SL)</label>
+      <input id="jobQty" type="number" min="0" step="1" placeholder="Contoh: 8">
+      <label>No. Sample / Keterangan</label>
+      <input id="jobNote" placeholder="Contoh: N1526052924">
+      <button class="btn aqua" onclick="addJob()">+ Tambah Pekerjaan</button>
+      <div id="jobList" class="job-list"></div>
+      <div class="score-wrap">
+        <div class="score ok"><span>TOTAL PENCAPAIAN</span><b id="totalPct">0%</b></div>
+        <div class="score bad"><span>KURANG</span><b id="lackPct">100%</b></div>
+      </div>
+      <div class="notice yellow-note">Foto lembar pekerjaan yang sudah ditulis.</div>
+      <label class="upload-box">
+        <input id="reportPhoto" type="file" accept="image/*" capture="environment" onchange="previewImage(this,'reportPreview')">
+        <img id="reportPreview" alt="Preview">
+        <span>📷 Ambil Foto Lembar Kerja</span>
+      </label>
+      <div class="info-grid">
+        <div>Nama</div><b id="reportName"></b>
+        <div>Tanggal</div><b id="reportDate"></b>
+        <div>Jam</div><b id="reportTime"></b>
+      </div>
+      <button class="btn save" onclick="saveDailyReport()">💾 Simpan Laporan Harian</button>
+      <button class="btn whatsapp" onclick="copyAndOpenWA('report')">💬 Salin Laporan & Buka WhatsApp</button>
+    </div>
+  </section>
+
+  <section id="adminPage" class="page">
+    <header class="topbar">
+      <div>
+        <div class="mini">ARC ADMIN</div>
+        <small>Admin Reporting and Certification</small>
+        <h2>Dashboard Admin</h2>
+        <p>Rekap 6 bulan terakhir.</p>
+      </div>
+      <button class="ghost" onclick="logout()">Logout</button>
+    </header>
+
+    <div class="admin-grid four">
+      <div class="stat"><small>Total Staff</small><b id="totalStaff">0</b></div>
+      <div class="stat"><small>Absen Hari Ini</small><b id="todayAttendance">0</b></div>
+      <div class="stat"><small>Kebersihan Hari Ini</small><b id="todayCleaning">0</b></div>
+      <div class="stat"><small>Laporan Hari Ini</small><b id="todayReport">0</b></div>
+    </div>
+
+    <div class="admin-menu">
+      <button onclick="showAdminSection('staffSection')">👥 Data Staff</button>
+      <button onclick="showAdminSection('attendanceSection')">📸 Rekap Absensi</button>
+      <button onclick="showAdminSection('cleaningSection')">🧹 Rekap Kebersihan</button>
+      <button onclick="showAdminSection('reportSection')">📝 Rekap Laporan</button>
+      <button onclick="showAdminSection('achievementSection')">📊 Pencapaian</button>
+      <button onclick="showAdminSection('archiveSection')">🗂 Arsip & Retensi</button>
+    </div>
+
+    <section id="staffSection" class="admin-section card">
+      <div class="admin-head">
+        <div><h3>Data Staff</h3><p>Tambah, edit, atau hapus staff.</p></div>
+        <button class="mini-btn" onclick="openStaffForm()">+ Tambah Staff</button>
+      </div>
+      <input id="staffSearch" class="filter-input" placeholder="Cari nama / username..." oninput="renderStaff()">
+      <div id="staffList" class="staff-list"></div>
+    </section>
+
+    <section id="attendanceSection" class="admin-section card hidden">
+      <div class="admin-head"><div><h3>Rekap Absensi Masuk</h3><p>Filter berdasarkan tanggal atau nama.</p></div></div>
+      <div class="filters">
+        <input type="date" id="attDate" onchange="renderAttendance()">
+        <input id="attName" placeholder="Cari nama..." oninput="renderAttendance()">
+      </div>
+      <button class="small-action" onclick="exportCSV('attendance')">⬇ Export CSV</button>
+      <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Jam</th><th>Foto</th></tr></thead><tbody id="attendanceRows"></tbody></table></div>
+    </section>
+
+    <section id="cleaningSection" class="admin-section card hidden">
+      <div class="admin-head"><div><h3>Rekap Kebersihan LAB</h3><p>Area kebersihan dan waktu pelaporan.</p></div></div>
+      <div class="filters">
+        <input type="date" id="cleanDateFilter" onchange="renderCleaning()">
+        <input id="cleanNameFilter" placeholder="Cari nama..." oninput="renderCleaning()">
+      </div>
+      <button class="small-action" onclick="exportCSV('cleaning')">⬇ Export CSV</button>
+      <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Area</th><th>Jam</th></tr></thead><tbody id="cleaningRows"></tbody></table></div>
+    </section>
+
+    <section id="reportSection" class="admin-section card hidden">
+      <div class="admin-head"><div><h3>Rekap Laporan Harian</h3><p>Pekerjaan dan total pencapaian staff.</p></div></div>
+      <div class="filters">
+        <input type="date" id="reportDateFilter" onchange="renderReports()">
+        <input id="reportNameFilter" placeholder="Cari nama..." oninput="renderReports()">
+      </div>
+      <button class="small-action" onclick="exportCSV('reports')">⬇ Export CSV</button>
+      <div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Pekerjaan</th><th>Total</th><th>Kurang</th></tr></thead><tbody id="reportRows"></tbody></table></div>
+    </section>
+
+    <section id="achievementSection" class="admin-section card hidden">
+      <div class="admin-head">
+        <div>
+          <h3>Rekap Pencapaian Harian</h3>
+          <p>Pilih tanggal untuk melihat pencapaian seluruh staff pada hari tersebut.</p>
+        </div>
+      </div>
+
+      <div class="filters">
+        <input type="date" id="achievementDate" onchange="renderAchievement()">
+        <input id="achievementName" placeholder="Cari nama..." oninput="renderAchievement()">
+      </div>
+
+      <div class="notice blue-note">
+        Staff yang sudah mengirim Laporan Harian akan menampilkan persentase pencapaian.
+        Jika tidak bekerja, Admin dapat menandai status <b>OFF</b>.
+      </div>
+
+      <button class="small-action" onclick="exportCSV('achievement')">⬇ Export CSV</button>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Nama</th>
+              <th>Status</th>
+              <th>Pencapaian</th>
+              <th>Kurang</th>
+              <th>Jam Lapor</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="achievementRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="archiveSection" class="admin-section card hidden">
+      <div class="admin-head"><div><h3>Arsip & Retensi Data</h3><p>Data operasional disimpan maksimal 6 bulan.</p></div></div>
+      <div class="notice blue-note">
+        Sebelum menghapus data lama, export CSV terlebih dahulu. Data staff tidak ikut terhapus.
+      </div>
+      <div class="archive-actions">
+        <button class="small-action" onclick="exportAll()">⬇ Export Semua Data</button>
+        <button class="small-action danger" onclick="purgeOldData()">🗑 Hapus Data &gt; 6 Bulan</button>
+      </div>
+      <p id="retentionInfo" class="hint"></p>
+    </section>
+  </section>
+
+  <section id="staffFormPage" class="page">
+    <div class="section-head">
+      <button class="back" onclick="showPage('adminPage')">←</button>
+      <div><h2 id="staffFormTitle">Tambah Staff</h2><small>ARC - Admin Reporting and Certification</small></div>
+    </div>
+    <div class="card">
+      <input type="hidden" id="editUsername">
+      <label>Nama Lengkap</label>
+      <input id="staffFullName" placeholder="Masukkan nama lengkap">
+      <label>Username</label>
+      <input id="staffUsername" placeholder="Masukkan username">
+      <label>Password</label>
+      <input id="staffPassword" type="password" placeholder="Masukkan password">
+      <label>Role</label>
+      <select id="staffRole"><option value="staff">Staff</option><option value="admin">Admin</option></select>
+      <button class="btn grad" onclick="saveStaff()">SIMPAN</button>
+    </div>
+  </section>
+
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
