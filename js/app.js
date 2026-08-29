@@ -8,12 +8,16 @@ const DEFAULT_USERS = {
   fuad: { password: "123456", name: "Muh Fuad Aprilamsyah", role: "staff" },
   irsan: { password: "123456", name: "Irsan", role: "staff" },
   fathur: { password: "123456", name: "Muhammad Fathurrahman", role: "staff" },
-  Rizky Arianto: { password: "123456", name: "Atok", role: "staff" }
+  atok: { password: "123456", name: "Rizky Arianto", role: "staff" }
 };
 
 let users = loadUsers();
 let currentUser = null;
 let jobs = [];
+
+/* =========================
+   LOCAL STORAGE
+========================= */
 
 function getStore(key) {
   try {
@@ -23,21 +27,34 @@ function getStore(key) {
   }
 }
 
-function setStore(key, val) {
-  localStorage.setItem(key, JSON.stringify(val));
+function setStore(key, value) {
+  localStorage.setItem(key, JSON.stringify(value));
 }
 
 function loadUsers() {
-  const saved = localStorage.getItem("arcUsers");
+  let savedUsers = {};
 
-  if (saved) {
-    try {
-      return JSON.parse(saved);
-    } catch (e) {}
+  try {
+    savedUsers = JSON.parse(localStorage.getItem("arcUsers") || "{}");
+  } catch (e) {
+    savedUsers = {};
   }
 
-  localStorage.setItem("arcUsers", JSON.stringify(DEFAULT_USERS));
-  return JSON.parse(JSON.stringify(DEFAULT_USERS));
+  /*
+   * Gabungkan user bawaan dengan user yang sudah pernah
+   * ditambahkan lewat Admin.
+   *
+   * Dengan cara ini user baru di DEFAULT_USERS ikut muncul
+   * tanpa perlu menghapus localStorage lama.
+   */
+  const mergedUsers = {
+    ...DEFAULT_USERS,
+    ...savedUsers
+  };
+
+  localStorage.setItem("arcUsers", JSON.stringify(mergedUsers));
+
+  return mergedUsers;
 }
 
 function persistUsers() {
@@ -45,11 +62,22 @@ function persistUsers() {
 }
 
 function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  return (
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2, 8)
+  );
 }
 
+/* =========================
+   TANGGAL & WAKTU
+========================= */
+
 function isoDate(d = new Date()) {
-  return d.toISOString().slice(0, 10);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function now() {
@@ -58,11 +86,13 @@ function now() {
   return {
     iso: d.toISOString(),
     isoDate: isoDate(d),
+
     date: d.toLocaleDateString("id-ID", {
       day: "2-digit",
       month: "long",
       year: "numeric"
     }),
+
     time: d
       .toLocaleTimeString("id-ID", {
         hour: "2-digit",
@@ -72,37 +102,46 @@ function now() {
   };
 }
 
-function fmtDate(v) {
-  return new Date(v + "T00:00:00").toLocaleDateString("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  });
+function fmtDate(value) {
+  if (!value) return "-";
+
+  return new Date(value + "T00:00:00").toLocaleDateString(
+    "id-ID",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric"
+    }
+  );
 }
 
 function cutoffDate() {
   const d = new Date();
+
   d.setMonth(d.getMonth() - RETENTION_MONTHS);
+
   return d;
 }
 
-function isOlderThanRetention(iso) {
-  return new Date(iso) < cutoffDate();
+function isOlderThanRetention(createdAt) {
+  if (!createdAt) return false;
+
+  return new Date(createdAt) < cutoffDate();
 }
 
 /* =========================
-   NAVIGATION & LOGIN
+   NAVIGASI
 ========================= */
 
 function showPage(id) {
-  document.querySelectorAll(".page").forEach((p) => {
-    p.classList.remove("active");
+  document.querySelectorAll(".page").forEach((page) => {
+    page.classList.remove("active");
   });
 
-  const page = document.getElementById(id);
+  const target = document.getElementById(id);
 
-  if (page) {
-    page.classList.add("active");
+  if (target) {
+    target.classList.add("active");
   }
 
   refreshMeta();
@@ -118,80 +157,141 @@ function showPage(id) {
   });
 }
 
+/* =========================
+   LOGIN
+========================= */
+
 function login() {
   users = loadUsers();
 
-  const username = document
-    .getElementById("username")
-    .value.trim()
-    .toLowerCase();
+  const usernameInput =
+    document.getElementById("username");
 
-  const password = document.getElementById("password").value;
+  const passwordInput =
+    document.getElementById("password");
 
-  if (users[username] && users[username].password === password) {
-    currentUser = {
-      username: username,
-      ...users[username]
-    };
+  const username =
+    usernameInput.value.trim().toLowerCase();
 
-    localStorage.setItem("arcUser", JSON.stringify(currentUser));
+  const password =
+    passwordInput.value;
 
-    if (currentUser.role === "admin") {
-      showPage("adminPage");
-    } else {
-      showPage("dashboardPage");
-    }
+  if (!username || !password) {
+    alert("Masukkan username dan password.");
+    return;
+  }
+
+  const account = users[username];
+
+  if (!account) {
+    alert("Username tidak ditemukan.");
+    return;
+  }
+
+  if (account.password !== password) {
+    alert("Password salah.");
+    return;
+  }
+
+  currentUser = {
+    username: username,
+    ...account
+  };
+
+  localStorage.setItem(
+    "arcUser",
+    JSON.stringify(currentUser)
+  );
+
+  if (currentUser.role === "admin") {
+    showPage("adminPage");
   } else {
-    alert("Username atau password salah.");
+    showPage("dashboardPage");
   }
 }
 
 function logout() {
   localStorage.removeItem("arcUser");
+
   currentUser = null;
 
-  document.getElementById("username").value = "";
-  document.getElementById("password").value = "";
+  const username =
+    document.getElementById("username");
+
+  const password =
+    document.getElementById("password");
+
+  if (username) username.value = "";
+  if (password) password.value = "";
 
   showPage("loginPage");
 }
 
 /* =========================
-   META
+   INFORMASI NAMA/TANGGAL
 ========================= */
 
 function refreshMeta() {
   const n = now();
   const name = currentUser?.name || "-";
 
-  ["staffName", "absenName", "cleanName", "reportName"].forEach((id) => {
+  [
+    "staffName",
+    "absenName",
+    "cleanName",
+    "reportName"
+  ].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.textContent = name;
+
+    if (el) {
+      el.textContent = name;
+    }
   });
 
-  ["absenDate", "cleanDate", "reportDate"].forEach((id) => {
+  [
+    "absenDate",
+    "cleanDate",
+    "reportDate"
+  ].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.textContent = n.date;
+
+    if (el) {
+      el.textContent = n.date;
+    }
   });
 
-  ["absenTime", "cleanTime", "reportTime"].forEach((id) => {
+  [
+    "absenTime",
+    "cleanTime",
+    "reportTime"
+  ].forEach((id) => {
     const el = document.getElementById(id);
-    if (el) el.textContent = n.time;
+
+    if (el) {
+      el.textContent = n.time;
+    }
   });
 
-  const today = document.getElementById("todayText");
-  if (today) today.textContent = n.date;
+  const todayText =
+    document.getElementById("todayText");
 
-  const area = document.getElementById("areaSelect");
-  const cleanArea = document.getElementById("cleanArea");
+  if (todayText) {
+    todayText.textContent = n.date;
+  }
 
-  if (area && cleanArea) {
-    cleanArea.textContent = area.value;
+  const areaSelect =
+    document.getElementById("areaSelect");
+
+  const cleanArea =
+    document.getElementById("cleanArea");
+
+  if (areaSelect && cleanArea) {
+    cleanArea.textContent = areaSelect.value;
   }
 }
 
-document.addEventListener("change", (e) => {
-  if (e.target.id === "areaSelect") {
+document.addEventListener("change", function (event) {
+  if (event.target.id === "areaSelect") {
     refreshMeta();
   }
 });
@@ -201,105 +301,155 @@ document.addEventListener("change", (e) => {
 ========================= */
 
 function previewImage(input, id) {
-  const file = input.files?.[0];
+  const file = input.files && input.files[0];
 
   if (!file) return;
 
   const img = document.getElementById(id);
 
-  if (img) {
-    img.src = URL.createObjectURL(file);
-  }
+  if (!img) return;
+
+  img.src = URL.createObjectURL(file);
+  img.style.display = "block";
 }
 
 function photoName(id) {
-  return document.getElementById(id)?.files?.[0]?.name || "";
+  const input = document.getElementById(id);
+
+  if (!input || !input.files || !input.files[0]) {
+    return "";
+  }
+
+  return input.files[0].name;
 }
 
 /* =========================
-   PEKERJAAN
+   PEKERJAAN HARIAN
 ========================= */
 
 function addJob() {
-  const sel = document.getElementById("jobType");
-  const qty = Number(document.getElementById("jobQty").value || 0);
-  const note = document.getElementById("jobNote").value.trim();
+  const jobType =
+    document.getElementById("jobType");
+
+  const jobQty =
+    document.getElementById("jobQty");
+
+  const jobNote =
+    document.getElementById("jobNote");
+
+  const qty = Number(jobQty.value || 0);
+  const note = jobNote.value.trim();
 
   if (qty <= 0) {
-    alert("Isi jumlah SL dulu.");
+    alert("Isi jumlah SL terlebih dahulu.");
     return;
   }
 
-  const pct = Number(sel.options[sel.selectedIndex].dataset.pct);
+  const selected =
+    jobType.options[jobType.selectedIndex];
+
+  const pct =
+    Number(selected.dataset.pct || 0);
 
   jobs.push({
-    type: sel.value,
+    type: jobType.value,
     qty: qty,
     pct: pct,
     note: note,
     total: qty * pct
   });
 
-  document.getElementById("jobQty").value = "";
-  document.getElementById("jobNote").value = "";
+  jobQty.value = "";
+  jobNote.value = "";
 
   renderJobs();
 }
 
-function removeJob(i) {
-  jobs.splice(i, 1);
+function removeJob(index) {
+  jobs.splice(index, 1);
+
   renderJobs();
 }
 
 function renderJobs() {
-  const box = document.getElementById("jobList");
+  const box =
+    document.getElementById("jobList");
 
   if (!box) return;
 
   box.innerHTML = jobs
-    .map(
-      (j, i) => `
+    .map((job, index) => {
+      return `
         <div class="job-row">
           <div>
-            <b>${esc(j.type)}</b>
-            ${j.note ? `<br><small>${esc(j.note)}</small>` : ""}
+            <b>${esc(job.type)}</b>
+            ${
+              job.note
+                ? `<br><small>${esc(job.note)}</small>`
+                : ""
+            }
           </div>
-
-          <div>${j.qty} SL</div>
 
           <div>
-            ${j.total.toFixed(2).replace(".", ",")}%
+            ${job.qty} SL
           </div>
 
-          <button onclick="removeJob(${i})">✕</button>
+          <div>
+            ${job.total.toFixed(2).replace(".", ",")}%
+          </div>
+
+          <button
+            type="button"
+            onclick="removeJob(${index})">
+            ✕
+          </button>
         </div>
-      `
-    )
+      `;
+    })
     .join("");
 
   const total = Math.min(
-    jobs.reduce((a, b) => a + b.total, 0),
+    jobs.reduce(
+      (sum, job) => sum + job.total,
+      0
+    ),
     100
   );
 
-  const lack = Math.max(0, 100 - total);
+  const lack =
+    Math.max(0, 100 - total);
 
-  document.getElementById("totalPct").textContent =
-    total.toFixed(2).replace(".", ",") + "%";
+  const totalElement =
+    document.getElementById("totalPct");
 
-  document.getElementById("lackPct").textContent =
-    lack.toFixed(2).replace(".", ",") + "%";
+  const lackElement =
+    document.getElementById("lackPct");
+
+  if (totalElement) {
+    totalElement.textContent =
+      total.toFixed(2).replace(".", ",") + "%";
+  }
+
+  if (lackElement) {
+    lackElement.textContent =
+      lack.toFixed(2).replace(".", ",") + "%";
+  }
 }
 
 /* =========================
-   SIMPAN DATA STAFF
+   SIMPAN ABSENSI
 ========================= */
 
 function saveAttendance() {
-  if (!currentUser) return;
+  if (!currentUser) {
+    alert("Silakan login terlebih dahulu.");
+    return;
+  }
 
   const n = now();
-  const rows = getStore("arcAttendance");
+
+  const rows =
+    getStore("arcAttendance");
 
   rows.push({
     id: uid(),
@@ -311,17 +461,31 @@ function saveAttendance() {
     photoName: photoName("absenPhoto")
   });
 
-  setStore("arcAttendance", rows);
+  setStore(
+    "arcAttendance",
+    rows
+  );
 
-  alert("Absensi tersimpan.");
+  alert("Absensi berhasil disimpan.");
 }
 
+/* =========================
+   SIMPAN KEBERSIHAN
+========================= */
+
 function saveCleaning() {
-  if (!currentUser) return;
+  if (!currentUser) {
+    alert("Silakan login terlebih dahulu.");
+    return;
+  }
+
+  const area =
+    document.getElementById("areaSelect").value;
 
   const n = now();
-  const rows = getStore("arcCleaning");
-  const area = document.getElementById("areaSelect").value;
+
+  const rows =
+    getStore("arcCleaning");
 
   rows.push({
     id: uid(),
@@ -334,28 +498,46 @@ function saveCleaning() {
     photoName: photoName("cleanPhoto")
   });
 
-  setStore("arcCleaning", rows);
+  setStore(
+    "arcCleaning",
+    rows
+  );
 
-  alert("Laporan kebersihan tersimpan.");
+  alert(
+    "Laporan kebersihan berhasil disimpan."
+  );
 }
 
+/* =========================
+   SIMPAN LAPORAN HARIAN
+========================= */
+
 function saveDailyReport() {
-  if (!currentUser) return;
+  if (!currentUser) {
+    alert("Silakan login terlebih dahulu.");
+    return;
+  }
 
   if (!jobs.length) {
-    alert("Tambahkan pekerjaan dulu.");
+    alert("Tambahkan pekerjaan terlebih dahulu.");
     return;
   }
 
   const n = now();
-  const rows = getStore("arcReports");
+
+  const rows =
+    getStore("arcReports");
 
   const total = Math.min(
-    jobs.reduce((a, b) => a + b.total, 0),
+    jobs.reduce(
+      (sum, job) => sum + job.total,
+      0
+    ),
     100
   );
 
-  const lack = Math.max(0, 100 - total);
+  const lack =
+    Math.max(0, 100 - total);
 
   rows.push({
     id: uid(),
@@ -366,18 +548,25 @@ function saveDailyReport() {
     createdAt: n.iso,
     total: total,
     lack: lack,
-    jobs: JSON.parse(JSON.stringify(jobs)),
+    jobs: JSON.parse(
+      JSON.stringify(jobs)
+    ),
     photoName: photoName("reportPhoto")
   });
 
-  setStore("arcReports", rows);
+  setStore(
+    "arcReports",
+    rows
+  );
 
-  alert("Laporan harian tersimpan.");
+  alert(
+    "Laporan harian berhasil disimpan."
+  );
 
   /*
-   * Pekerjaan sengaja TIDAK langsung dihapus.
-   * Jadi setelah klik Simpan, staff masih bisa menekan
-   * tombol Bagikan ke WhatsApp.
+   * Jangan kosongkan jobs di sini.
+   * Data masih diperlukan ketika staff
+   * menekan Bagikan ke WhatsApp.
    */
 }
 
@@ -386,10 +575,15 @@ function saveDailyReport() {
 ========================= */
 
 async function copyAndOpenWA(type) {
+  if (!currentUser) {
+    alert("Silakan login terlebih dahulu.");
+    return;
+  }
+
   refreshMeta();
 
   const n = now();
-  const name = currentUser?.name || "-";
+  const name = currentUser.name;
 
   let text = "";
   let photoInputId = "";
@@ -409,7 +603,8 @@ async function copyAndOpenWA(type) {
   if (type === "clean") {
     photoInputId = "cleanPhoto";
 
-    const area = document.getElementById("areaSelect").value;
+    const area =
+      document.getElementById("areaSelect").value;
 
     text = `🧹 LAPORAN KEBERSIHAN LAB
 
@@ -425,30 +620,36 @@ async function copyAndOpenWA(type) {
     photoInputId = "reportPhoto";
 
     if (!jobs.length) {
-      alert("Tambahkan pekerjaan dulu.");
+      alert(
+        "Tambahkan pekerjaan terlebih dahulu."
+      );
       return;
     }
 
     const total = Math.min(
-      jobs.reduce((a, b) => a + b.total, 0),
+      jobs.reduce(
+        (sum, job) =>
+          sum + job.total,
+        0
+      ),
       100
     );
 
-    const kurang = Math.max(0, 100 - total);
+    const kurang =
+      Math.max(0, 100 - total);
 
     const detail = jobs
-      .map((j) => {
-        let hasil =
-          `${j.type}\n` +
-          `${j.qty} SL = ${j.total
-            .toFixed(2)
-            .replace(".", ",")}%`;
+      .map((job) => {
+        let line =
+          `${job.type}\n` +
+          `${job.qty} SL = ` +
+          `${job.total.toFixed(2).replace(".", ",")}%`;
 
-        if (j.note) {
-          hasil += `\n${j.note}`;
+        if (job.note) {
+          line += `\n${job.note}`;
         }
 
-        return hasil;
+        return line;
       })
       .join("\n\n");
 
@@ -466,18 +667,24 @@ ${detail}
 📸 Foto lembar kerja terlampir`;
   }
 
-  const input = document.getElementById(photoInputId);
-  const file = input?.files?.[0];
+  const input =
+    document.getElementById(photoInputId);
+
+  const file =
+    input &&
+    input.files &&
+    input.files[0];
 
   if (!file) {
-    alert("Ambil atau pilih foto terlebih dahulu.");
+    alert(
+      "Ambil atau pilih foto terlebih dahulu."
+    );
     return;
   }
 
   /*
-   * Web Share API.
-   * Jika HP mendukung berbagi file,
-   * foto + teks dikirim ke menu Share HP.
+   * Coba share FOTO + TEKS melalui
+   * menu Share bawaan HP.
    */
   if (
     navigator.share &&
@@ -488,31 +695,37 @@ ${detail}
   ) {
     try {
       await navigator.share({
-        title: "ARC - Admin Reporting and Certification",
+        title:
+          "ARC - Admin Reporting and Certification",
         text: text,
         files: [file]
       });
 
       return;
-    } catch (err) {
-      if (err && err.name === "AbortError") {
+    } catch (error) {
+      if (
+        error &&
+        error.name === "AbortError"
+      ) {
         return;
       }
 
-      console.error("Share foto gagal:", err);
+      console.error(
+        "Share gagal:",
+        error
+      );
     }
   }
 
   /*
-   * Jika browser bisa Share tetapi tidak mendukung file,
-   * jangan pura-pura mengirim foto.
-   * Gunakan fallback WhatsApp.
+   * Fallback jika HP/browser tidak
+   * mendukung share file.
    */
-
   try {
     await navigator.clipboard.writeText(text);
-  } catch (e) {
-    const textarea = document.createElement("textarea");
+  } catch (error) {
+    const textarea =
+      document.createElement("textarea");
 
     textarea.value = text;
     textarea.style.position = "fixed";
@@ -529,56 +742,114 @@ ${detail}
   }
 
   alert(
-    "HP atau browser ini belum mendukung pengiriman foto + teks langsung. " +
-    "Teks laporan sudah disalin. WhatsApp akan dibuka, lalu lampirkan foto secara manual."
+    "Browser ini belum mendukung berbagi foto + teks sekaligus. " +
+    "Teks laporan sudah disalin. WhatsApp akan dibuka dan foto dapat dilampirkan secara manual."
   );
 
-  window.open("https://wa.me/", "_blank");
+  window.open(
+    "https://wa.me/",
+    "_blank"
+  );
 }
 
 /* =========================
-   ADMIN
+   ADMIN - MENU
 ========================= */
 
 function showAdminSection(id) {
-  document.querySelectorAll(".admin-section").forEach((section) => {
-    section.classList.add("hidden");
-  });
+  document
+    .querySelectorAll(".admin-section")
+    .forEach((section) => {
+      section.classList.add("hidden");
+    });
 
-  const target = document.getElementById(id);
+  const target =
+    document.getElementById(id);
 
   if (target) {
     target.classList.remove("hidden");
   }
 
-  if (id === "staffSection") renderStaff();
-  if (id === "attendanceSection") renderAttendance();
-  if (id === "cleaningSection") renderCleaning();
-  if (id === "reportSection") renderReports();
-  if (id === "achievementSection") renderAchievement();
-  if (id === "archiveSection") renderRetentionInfo();
+  if (id === "staffSection") {
+    renderStaff();
+  }
+
+  if (id === "attendanceSection") {
+    renderAttendance();
+  }
+
+  if (id === "cleaningSection") {
+    renderCleaning();
+  }
+
+  if (id === "reportSection") {
+    renderReports();
+  }
+
+  if (id === "achievementSection") {
+    renderAchievement();
+  }
+
+  if (id === "archiveSection") {
+    renderRetentionInfo();
+  }
 }
 
 function renderAdminSummary() {
   users = loadUsers();
 
-  document.getElementById("totalStaff").textContent =
-    Object.values(users).filter((u) => u.role === "staff").length;
+  const staff =
+    Object.values(users).filter(
+      (user) =>
+        user.role === "staff"
+    );
 
   const today = isoDate();
 
-  document.getElementById("todayAttendance").textContent =
-    getStore("arcAttendance").filter((r) => r.date === today).length;
+  const totalStaff =
+    document.getElementById("totalStaff");
 
-  document.getElementById("todayCleaning").textContent =
-    getStore("arcCleaning").filter((r) => r.date === today).length;
+  const todayAttendance =
+    document.getElementById("todayAttendance");
 
-  document.getElementById("todayReport").textContent =
-    getStore("arcReports").filter((r) => r.date === today).length;
+  const todayCleaning =
+    document.getElementById("todayCleaning");
+
+  const todayReport =
+    document.getElementById("todayReport");
+
+  if (totalStaff) {
+    totalStaff.textContent =
+      staff.length;
+  }
+
+  if (todayAttendance) {
+    todayAttendance.textContent =
+      getStore("arcAttendance").filter(
+        (row) =>
+          row.date === today
+      ).length;
+  }
+
+  if (todayCleaning) {
+    todayCleaning.textContent =
+      getStore("arcCleaning").filter(
+        (row) =>
+          row.date === today
+      ).length;
+  }
+
+  if (todayReport) {
+    todayReport.textContent =
+      getStore("arcReports").filter(
+        (row) =>
+          row.date === today
+      ).length;
+  }
 }
 
 /* =========================
-   DATA STAFF
+   ADMIN - DATA STAFF
 ========================= */
 
 function renderStaff() {
@@ -586,43 +857,70 @@ function renderStaff() {
 
   renderAdminSummary();
 
-  const search = document.getElementById("staffSearch");
-  const kw = (search?.value || "").toLowerCase();
+  const search =
+    document.getElementById("staffSearch");
 
-  const box = document.getElementById("staffList");
+  const keyword =
+    (search?.value || "")
+      .trim()
+      .toLowerCase();
 
-  const rows = Object.entries(users)
-    .filter(([username, u]) => {
-      if (username === "admin") return false;
+  const box =
+    document.getElementById("staffList");
 
-      return (
-        !kw ||
-        username.includes(kw) ||
-        u.name.toLowerCase().includes(kw)
+  if (!box) return;
+
+  const rows =
+    Object.entries(users)
+      .filter(
+        ([username, user]) => {
+          if (username === "admin") {
+            return false;
+          }
+
+          return (
+            !keyword ||
+            username.includes(keyword) ||
+            user.name
+              .toLowerCase()
+              .includes(keyword)
+          );
+        }
+      )
+      .sort(
+        (a, b) =>
+          a[1].name.localeCompare(
+            b[1].name
+          )
       );
-    })
-    .sort((a, b) => a[1].name.localeCompare(b[1].name));
 
   if (!rows.length) {
     box.innerHTML =
       '<p class="hint">Data staff tidak ditemukan.</p>';
+
     return;
   }
 
   box.innerHTML = rows
-    .map(
-      ([username, u]) => `
+    .map(([username, user]) => {
+      return `
         <div class="staff-item">
 
           <div class="staff-meta">
-            <b>${esc(u.name)}</b>
+            <b>${esc(user.name)}</b>
             <small>@${esc(username)}</small>
+
             <span class="role-badge">
-              ${u.role === "admin" ? "Admin" : "Staff"}
+              ${
+                user.role === "admin"
+                  ? "Admin"
+                  : "Staff"
+              }
             </span>
           </div>
 
           <div class="staff-actions">
+
             <button
               class="edit-btn"
               onclick="editStaff('${username}')">
@@ -634,25 +932,43 @@ function renderStaff() {
               onclick="deleteStaff('${username}')">
               Hapus
             </button>
+
           </div>
 
         </div>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
 function openStaffForm() {
-  document.getElementById("staffFormTitle").textContent =
-    "Tambah Staff";
+  document.getElementById(
+    "staffFormTitle"
+  ).textContent = "Tambah Staff";
 
-  document.getElementById("editUsername").value = "";
-  document.getElementById("staffFullName").value = "";
-  document.getElementById("staffUsername").value = "";
-  document.getElementById("staffPassword").value = "";
-  document.getElementById("staffRole").value = "staff";
+  document.getElementById(
+    "editUsername"
+  ).value = "";
 
-  document.getElementById("staffUsername").disabled = false;
+  document.getElementById(
+    "staffFullName"
+  ).value = "";
+
+  document.getElementById(
+    "staffUsername"
+  ).value = "";
+
+  document.getElementById(
+    "staffPassword"
+  ).value = "";
+
+  document.getElementById(
+    "staffRole"
+  ).value = "staff";
+
+  document.getElementById(
+    "staffUsername"
+  ).disabled = false;
 
   showPage("staffFormPage");
 }
@@ -660,21 +976,37 @@ function openStaffForm() {
 function editStaff(username) {
   users = loadUsers();
 
-  const u = users[username];
+  const user = users[username];
 
-  if (!u) return;
+  if (!user) return;
 
-  document.getElementById("staffFormTitle").textContent =
-    "Edit Staff";
+  document.getElementById(
+    "staffFormTitle"
+  ).textContent = "Edit Staff";
 
-  document.getElementById("editUsername").value = username;
-  document.getElementById("staffFullName").value = u.name;
-  document.getElementById("staffUsername").value = username;
-  document.getElementById("staffPassword").value = u.password;
-  document.getElementById("staffRole").value =
-    u.role || "staff";
+  document.getElementById(
+    "editUsername"
+  ).value = username;
 
-  document.getElementById("staffUsername").disabled = true;
+  document.getElementById(
+    "staffFullName"
+  ).value = user.name;
+
+  document.getElementById(
+    "staffUsername"
+  ).value = username;
+
+  document.getElementById(
+    "staffPassword"
+  ).value = user.password;
+
+  document.getElementById(
+    "staffRole"
+  ).value = user.role || "staff";
+
+  document.getElementById(
+    "staffUsername"
+  ).disabled = true;
 
   showPage("staffFormPage");
 }
@@ -683,41 +1015,79 @@ function saveStaff() {
   users = loadUsers();
 
   const editUsername =
-    document.getElementById("editUsername").value;
+    document.getElementById(
+      "editUsername"
+    ).value;
 
   const name =
-    document.getElementById("staffFullName").value.trim();
+    document.getElementById(
+      "staffFullName"
+    ).value.trim();
 
   const username =
-    document
-      .getElementById("staffUsername")
-      .value.trim()
+    document.getElementById(
+      "staffUsername"
+    ).value
+      .trim()
       .toLowerCase();
 
   const password =
-    document.getElementById("staffPassword").value;
+    document.getElementById(
+      "staffPassword"
+    ).value;
 
   const role =
-    document.getElementById("staffRole").value;
+    document.getElementById(
+      "staffRole"
+    ).value;
 
-  if (!name || !username || !password) {
-    alert("Nama, username, dan password wajib diisi.");
-    return;
-  }
-
-  if (!/^[a-z0-9._-]+$/.test(username)) {
+  if (
+    !name ||
+    !username ||
+    !password
+  ) {
     alert(
-      "Username hanya boleh huruf kecil, angka, titik, garis bawah, atau strip."
+      "Nama, username, dan password wajib diisi."
     );
+
     return;
   }
 
-  if (!editUsername && users[username]) {
-    alert("Username sudah digunakan.");
+  if (
+    !/^[a-z0-9._-]+$/.test(
+      username
+    )
+  ) {
+    alert(
+      "Username hanya boleh berisi huruf kecil, angka, titik, garis bawah, atau strip."
+    );
+
     return;
   }
 
-  users[editUsername || username] = {
+  if (
+    !editUsername &&
+    users[username]
+  ) {
+    alert(
+      "Username sudah digunakan."
+    );
+
+    return;
+  }
+
+  /*
+   * Jika username sedang diedit,
+   * hapus key lama terlebih dahulu.
+   */
+  if (
+    editUsername &&
+    editUsername !== username
+  ) {
+    delete users[editUsername];
+  }
+
+  users[username] = {
     name: name,
     password: password,
     role: role
@@ -725,15 +1095,23 @@ function saveStaff() {
 
   persistUsers();
 
-  alert("Data staff berhasil disimpan.");
+  alert(
+    "Data staff berhasil disimpan."
+  );
 
-  document.getElementById("staffUsername").disabled = false;
+  document.getElementById(
+    "staffUsername"
+  ).disabled = false;
 
   showPage("adminPage");
 }
 
 function deleteStaff(username) {
-  if (!confirm(`Hapus staff @${username}?`)) {
+  if (
+    !confirm(
+      `Hapus staff @${username}?`
+    )
+  ) {
     return;
   }
 
@@ -747,162 +1125,237 @@ function deleteStaff(username) {
 }
 
 /* =========================
-   REKAP
+   FILTER REKAP
 ========================= */
 
-function filterRows(rows, dateId, nameId) {
+function filterRows(
+  rows,
+  dateId,
+  nameId
+) {
   const date =
-    document.getElementById(dateId)?.value || "";
+    document.getElementById(dateId)
+      ?.value || "";
 
   const name =
     (
-      document.getElementById(nameId)?.value || ""
-    ).toLowerCase();
+      document.getElementById(nameId)
+        ?.value || ""
+    )
+      .trim()
+      .toLowerCase();
 
   return rows
-    .filter(
-      (r) =>
-        (!date || r.date === date) &&
-        (!name || r.name.toLowerCase().includes(name))
-    )
-    .sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt)
-    );
+    .filter((row) => {
+      const matchDate =
+        !date ||
+        row.date === date;
+
+      const matchName =
+        !name ||
+        String(row.name || "")
+          .toLowerCase()
+          .includes(name);
+
+      return (
+        matchDate &&
+        matchName
+      );
+    })
+    .sort((a, b) => {
+      return String(
+        b.createdAt || ""
+      ).localeCompare(
+        String(
+          a.createdAt || ""
+        )
+      );
+    });
 }
+
+/* =========================
+   REKAP ABSENSI
+========================= */
 
 function renderAttendance() {
-  const rows = filterRows(
-    getStore("arcAttendance"),
-    "attDate",
-    "attName"
-  );
+  const rows =
+    filterRows(
+      getStore("arcAttendance"),
+      "attDate",
+      "attName"
+    );
 
-  const tb = document.getElementById("attendanceRows");
+  const table =
+    document.getElementById(
+      "attendanceRows"
+    );
+
+  if (!table) return;
 
   if (!rows.length) {
-    tb.innerHTML =
+    table.innerHTML =
       '<tr><td class="empty" colspan="4">Belum ada data.</td></tr>';
+
     return;
   }
 
-  tb.innerHTML = rows
-    .map(
-      (r) => `
+  table.innerHTML = rows
+    .map((row) => {
+      return `
         <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${esc(r.name)}</td>
-          <td>${r.time}</td>
-          <td>${r.photoName ? "Ada" : "-"}</td>
+          <td>${fmtDate(row.date)}</td>
+          <td>${esc(row.name)}</td>
+          <td>${esc(row.time)}</td>
+          <td>${row.photoName ? "Ada" : "-"}</td>
         </tr>
-      `
-    )
-    .join("");
-}
-
-function renderCleaning() {
-  const rows = filterRows(
-    getStore("arcCleaning"),
-    "cleanDateFilter",
-    "cleanNameFilter"
-  );
-
-  const tb = document.getElementById("cleaningRows");
-
-  if (!rows.length) {
-    tb.innerHTML =
-      '<tr><td class="empty" colspan="4">Belum ada data.</td></tr>';
-    return;
-  }
-
-  tb.innerHTML = rows
-    .map(
-      (r) => `
-        <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${esc(r.name)}</td>
-          <td>${esc(r.area)}</td>
-          <td>${r.time}</td>
-        </tr>
-      `
-    )
-    .join("");
-}
-
-function renderReports() {
-  const rows = filterRows(
-    getStore("arcReports"),
-    "reportDateFilter",
-    "reportNameFilter"
-  );
-
-  const tb = document.getElementById("reportRows");
-
-  if (!rows.length) {
-    tb.innerHTML =
-      '<tr><td class="empty" colspan="5">Belum ada data.</td></tr>';
-    return;
-  }
-
-  tb.innerHTML = rows
-    .map(
-      (r) => `
-        <tr>
-          <td>${fmtDate(r.date)}</td>
-          <td>${esc(r.name)}</td>
-
-          <td>
-            ${r.jobs
-              .map(
-                (j) =>
-                  `${esc(j.type)} (${j.qty} SL)`
-              )
-              .join("<br>")}
-          </td>
-
-          <td>
-            ${r.total.toFixed(2).replace(".", ",")}%
-          </td>
-
-          <td>
-            ${r.lack.toFixed(2).replace(".", ",")}%
-          </td>
-        </tr>
-      `
-    )
+      `;
+    })
     .join("");
 }
 
 /* =========================
-   STATUS HARIAN
+   REKAP KEBERSIHAN
+========================= */
+
+function renderCleaning() {
+  const rows =
+    filterRows(
+      getStore("arcCleaning"),
+      "cleanDateFilter",
+      "cleanNameFilter"
+    );
+
+  const table =
+    document.getElementById(
+      "cleaningRows"
+    );
+
+  if (!table) return;
+
+  if (!rows.length) {
+    table.innerHTML =
+      '<tr><td class="empty" colspan="4">Belum ada data.</td></tr>';
+
+    return;
+  }
+
+  table.innerHTML = rows
+    .map((row) => {
+      return `
+        <tr>
+          <td>${fmtDate(row.date)}</td>
+          <td>${esc(row.name)}</td>
+          <td>${esc(row.area)}</td>
+          <td>${esc(row.time)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+/* =========================
+   REKAP LAPORAN
+========================= */
+
+function renderReports() {
+  const rows =
+    filterRows(
+      getStore("arcReports"),
+      "reportDateFilter",
+      "reportNameFilter"
+    );
+
+  const table =
+    document.getElementById(
+      "reportRows"
+    );
+
+  if (!table) return;
+
+  if (!rows.length) {
+    table.innerHTML =
+      '<tr><td class="empty" colspan="5">Belum ada data.</td></tr>';
+
+    return;
+  }
+
+  table.innerHTML = rows
+    .map((row) => {
+      const jobText =
+        (row.jobs || [])
+          .map(
+            (job) =>
+              `${esc(job.type)} (${job.qty} SL)`
+          )
+          .join("<br>");
+
+      return `
+        <tr>
+          <td>${fmtDate(row.date)}</td>
+          <td>${esc(row.name)}</td>
+          <td>${jobText}</td>
+
+          <td>
+            ${Number(row.total || 0)
+              .toFixed(2)
+              .replace(".", ",")}%
+          </td>
+
+          <td>
+            ${Number(row.lack || 0)
+              .toFixed(2)
+              .replace(".", ",")}%
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+/* =========================
+   STATUS OFF
 ========================= */
 
 function getDailyStatus() {
-  return getStore("arcDailyStatus");
+  return getStore(
+    "arcDailyStatus"
+  );
 }
 
 function setDailyStatus(rows) {
-  setStore("arcDailyStatus", rows);
+  setStore(
+    "arcDailyStatus",
+    rows
+  );
 }
 
-function setOffStatus(username, date, isOff = true) {
-  let rows = getDailyStatus().filter(
-    (r) =>
-      !(
-        r.username === username &&
-        r.date === date
-      )
-  );
+function setOffStatus(
+  username,
+  date,
+  isOff = true
+) {
+  let rows =
+    getDailyStatus().filter(
+      (row) =>
+        !(
+          row.username === username &&
+          row.date === date
+        )
+    );
 
   if (isOff) {
-    const u = loadUsers()[username];
+    const user =
+      loadUsers()[username];
 
     rows.push({
       id: uid(),
       username: username,
-      name: u?.name || username,
+      name:
+        user?.name || username,
       date: date,
       status: "OFF",
-      createdAt: new Date().toISOString()
+      createdAt:
+        new Date().toISOString()
     });
   }
 
@@ -917,181 +1370,266 @@ function setOffStatus(username, date, isOff = true) {
 
 function renderAchievement() {
   const dateInput =
-    document.getElementById("achievementDate");
+    document.getElementById(
+      "achievementDate"
+    );
 
-  if (dateInput && !dateInput.value) {
-    dateInput.value = isoDate();
+  if (
+    dateInput &&
+    !dateInput.value
+  ) {
+    dateInput.value =
+      isoDate();
   }
 
   const date =
-    dateInput?.value || isoDate();
+    dateInput?.value ||
+    isoDate();
 
   const keyword =
     (
-      document.getElementById("achievementName")
-        ?.value || ""
+      document.getElementById(
+        "achievementName"
+      )?.value || ""
     )
       .trim()
       .toLowerCase();
 
-  const allUsers = loadUsers();
+  const allUsers =
+    loadUsers();
 
-  const staff = Object.entries(allUsers)
-    .filter(([username, u]) => {
-      return (
-        u.role === "staff" &&
-        (
-          !keyword ||
-          u.name.toLowerCase().includes(keyword) ||
-          username.includes(keyword)
-        )
+  const staff =
+    Object.entries(allUsers)
+      .filter(
+        ([username, user]) => {
+          return (
+            user.role === "staff" &&
+            (
+              !keyword ||
+              username.includes(keyword) ||
+              user.name
+                .toLowerCase()
+                .includes(keyword)
+            )
+          );
+        }
+      )
+      .sort(
+        (a, b) =>
+          a[1].name.localeCompare(
+            b[1].name
+          )
       );
-    })
-    .sort((a, b) =>
-      a[1].name.localeCompare(b[1].name)
-    );
 
   const reports =
-    getStore("arcReports").filter(
-      (r) => r.date === date
-    );
+    getStore("arcReports")
+      .filter(
+        (row) =>
+          row.date === date
+      );
 
   const statusRows =
-    getDailyStatus().filter(
-      (r) => r.date === date
+    getDailyStatus()
+      .filter(
+        (row) =>
+          row.date === date
+      );
+
+  const table =
+    document.getElementById(
+      "achievementRows"
     );
 
-  const tb =
-    document.getElementById("achievementRows");
+  if (!table) return;
 
   if (!staff.length) {
-    tb.innerHTML =
+    table.innerHTML =
       '<tr><td class="empty" colspan="6">Staff tidak ditemukan.</td></tr>';
+
     return;
   }
 
-  tb.innerHTML = staff
-    .map(([username, u]) => {
-      const dailyReports =
-        reports.filter(
-          (r) => r.username === username
-        );
+  table.innerHTML =
+    staff
+      .map(
+        ([username, user]) => {
+          const dailyReports =
+            reports
+              .filter(
+                (row) =>
+                  row.username === username
+              )
+              .sort(
+                (a, b) =>
+                  String(
+                    b.createdAt || ""
+                  ).localeCompare(
+                    String(
+                      a.createdAt || ""
+                    )
+                  )
+              );
 
-      const off =
-        statusRows.find(
-          (r) =>
-            r.username === username &&
-            r.status === "OFF"
-        );
+          const off =
+            statusRows.find(
+              (row) =>
+                row.username === username &&
+                row.status === "OFF"
+            );
 
-      if (dailyReports.length) {
-        const report =
-          dailyReports.sort(
-            (a, b) =>
-              b.createdAt.localeCompare(a.createdAt)
-          )[0];
+          if (
+            dailyReports.length
+          ) {
+            const report =
+              dailyReports[0];
 
-        const total =
-          Math.min(
-            Number(report.total || 0),
-            100
-          );
+            const total =
+              Math.min(
+                Number(
+                  report.total || 0
+                ),
+                100
+              );
 
-        const kurang =
-          Math.max(0, 100 - total);
+            const kurang =
+              Math.max(
+                0,
+                100 - total
+              );
 
-        const status =
-          total >= 100
-            ? "✅ 100%"
-            : "⚠️ Kurang";
+            const status =
+              total >= 100
+                ? "✅ 100%"
+                : "⚠️ Kurang";
 
-        return `
-          <tr>
-            <td>${esc(u.name)}</td>
-            <td>${status}</td>
+            return `
+              <tr>
 
-            <td>
-              <b>
-                ${total
-                  .toFixed(2)
-                  .replace(".", ",")}%
-              </b>
-            </td>
+                <td>
+                  ${esc(user.name)}
+                </td>
 
-            <td>
-              ${
-                kurang <= 0
-                  ? "-"
-                  : kurang
+                <td>
+                  ${status}
+                </td>
+
+                <td>
+                  <b>
+                    ${total
                       .toFixed(2)
-                      .replace(".", ",") + "%"
-              }
-            </td>
+                      .replace(".", ",")}%
+                  </b>
+                </td>
 
-            <td>${report.time || "-"}</td>
-            <td>-</td>
-          </tr>
-        `;
-      }
+                <td>
+                  ${
+                    kurang <= 0
+                      ? "-"
+                      : kurang
+                          .toFixed(2)
+                          .replace(".", ",") +
+                        "%"
+                  }
+                </td>
 
-      if (off) {
-        return `
-          <tr>
-            <td>${esc(u.name)}</td>
-            <td><b>OFF</b></td>
-            <td>-</td>
-            <td>-</td>
-            <td>-</td>
+                <td>
+                  ${esc(
+                    report.time || "-"
+                  )}
+                </td>
 
-            <td>
-              <button
-                class="edit-btn"
-                onclick="setOffStatus('${username}','${date}',false)">
-                Batalkan OFF
-              </button>
-            </td>
-          </tr>
-        `;
-      }
+                <td>-</td>
 
-      return `
-        <tr>
-          <td>${esc(u.name)}</td>
-          <td>Belum Lapor</td>
-          <td>-</td>
-          <td>-</td>
-          <td>-</td>
+              </tr>
+            `;
+          }
 
-          <td>
-            <button
-              class="mini-btn"
-              onclick="setOffStatus('${username}','${date}',true)">
-              Tandai OFF
-            </button>
-          </td>
-        </tr>
-      `;
-    })
-    .join("");
+          if (off) {
+            return `
+              <tr>
+
+                <td>
+                  ${esc(user.name)}
+                </td>
+
+                <td>
+                  <b>OFF</b>
+                </td>
+
+                <td>-</td>
+                <td>-</td>
+                <td>-</td>
+
+                <td>
+                  <button
+                    class="edit-btn"
+                    onclick="setOffStatus('${username}','${date}',false)">
+                    Batalkan OFF
+                  </button>
+                </td>
+
+              </tr>
+            `;
+          }
+
+          return `
+            <tr>
+
+              <td>
+                ${esc(user.name)}
+              </td>
+
+              <td>
+                Belum Lapor
+              </td>
+
+              <td>-</td>
+              <td>-</td>
+              <td>-</td>
+
+              <td>
+                <button
+                  class="mini-btn"
+                  onclick="setOffStatus('${username}','${date}',true)">
+                  Tandai OFF
+                </button>
+              </td>
+
+            </tr>
+          `;
+        }
+      )
+      .join("");
 }
 
 /* =========================
-   CSV
+   EXPORT CSV
 ========================= */
 
-function csvEscape(v) {
-  const s =
-    String(v ?? "").replace(/"/g, '""');
+function csvEscape(value) {
+  const text =
+    String(
+      value ?? ""
+    ).replace(
+      /"/g,
+      '""'
+    );
 
-  return `"${s}"`;
+  return `"${text}"`;
 }
 
-function downloadCSV(filename, rows) {
+function downloadCSV(
+  filename,
+  rows
+) {
   const csv =
     "\ufeff" +
     rows
-      .map((r) =>
-        r.map(csvEscape).join(",")
+      .map(
+        (row) =>
+          row
+            .map(csvEscape)
+            .join(",")
       )
       .join("\n");
 
@@ -1099,29 +1637,37 @@ function downloadCSV(filename, rows) {
     new Blob(
       [csv],
       {
-        type: "text/csv;charset=utf-8;"
+        type:
+          "text/csv;charset=utf-8;"
       }
     );
 
   const url =
-    URL.createObjectURL(blob);
+    URL.createObjectURL(
+      blob
+    );
 
-  const a =
-    document.createElement("a");
+  const link =
+    document.createElement(
+      "a"
+    );
 
-  a.href = url;
-  a.download = filename;
+  link.href = url;
+  link.download = filename;
 
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
+  document.body.appendChild(
+    link
+  );
+
+  link.click();
+  link.remove();
 
   URL.revokeObjectURL(url);
 }
 
 function exportCSV(type) {
   if (type === "attendance") {
-    const d =
+    const data =
       filterRows(
         getStore("arcAttendance"),
         "attDate",
@@ -1138,19 +1684,24 @@ function exportCSV(type) {
           "Jam",
           "Foto"
         ],
-        ...d.map((r) => [
-          r.date,
-          r.name,
-          r.username,
-          r.time,
-          r.photoName || ""
-        ])
+
+        ...data.map(
+          (row) => [
+            row.date,
+            row.name,
+            row.username,
+            row.time,
+            row.photoName || ""
+          ]
+        )
       ]
     );
+
+    return;
   }
 
   if (type === "cleaning") {
-    const d =
+    const data =
       filterRows(
         getStore("arcCleaning"),
         "cleanDateFilter",
@@ -1167,19 +1718,24 @@ function exportCSV(type) {
           "Area",
           "Jam"
         ],
-        ...d.map((r) => [
-          r.date,
-          r.name,
-          r.username,
-          r.area,
-          r.time
-        ])
+
+        ...data.map(
+          (row) => [
+            row.date,
+            row.name,
+            row.username,
+            row.area,
+            row.time
+          ]
+        )
       ]
     );
+
+    return;
   }
 
   if (type === "reports") {
-    const d =
+    const data =
       filterRows(
         getStore("arcReports"),
         "reportDateFilter",
@@ -1197,51 +1753,69 @@ function exportCSV(type) {
           "Total %",
           "Kurang %"
         ],
-        ...d.map((r) => [
-          r.date,
-          r.name,
-          r.username,
 
-          r.jobs
-            .map(
-              (j) =>
-                `${j.type} ${j.qty} SL ${j.note || ""}`
-            )
-            .join(" | "),
+        ...data.map(
+          (row) => [
+            row.date,
+            row.name,
+            row.username,
 
-          r.total.toFixed(2),
-          r.lack.toFixed(2)
-        ])
+            (row.jobs || [])
+              .map(
+                (job) =>
+                  `${job.type} ${job.qty} SL ${job.note || ""}`
+              )
+              .join(" | "),
+
+            Number(
+              row.total || 0
+            ).toFixed(2),
+
+            Number(
+              row.lack || 0
+            ).toFixed(2)
+          ]
+        )
       ]
     );
+
+    return;
   }
 
   if (type === "achievement") {
     const date =
-      document.getElementById("achievementDate")
-        ?.value || isoDate();
+      document.getElementById(
+        "achievementDate"
+      )?.value ||
+      isoDate();
 
     const keyword =
       (
-        document.getElementById("achievementName")
-          ?.value || ""
+        document.getElementById(
+          "achievementName"
+        )?.value || ""
       )
         .trim()
         .toLowerCase();
 
-    const allUsers = loadUsers();
+    const allUsers =
+      loadUsers();
 
     const reports =
-      getStore("arcReports").filter(
-        (r) => r.date === date
-      );
+      getStore("arcReports")
+        .filter(
+          (row) =>
+            row.date === date
+        );
 
     const statusRows =
-      getDailyStatus().filter(
-        (r) => r.date === date
-      );
+      getDailyStatus()
+        .filter(
+          (row) =>
+            row.date === date
+        );
 
-    const out = [
+    const output = [
       [
         "Tanggal",
         "Nama",
@@ -1253,101 +1827,126 @@ function exportCSV(type) {
       ]
     ];
 
-    Object.entries(allUsers)
-      .filter(([username, u]) => {
-        return (
-          u.role === "staff" &&
+    Object.entries(
+      allUsers
+    )
+      .filter(
+        ([username, user]) =>
+          user.role === "staff" &&
           (
             !keyword ||
-            u.name
+            username.includes(
+              keyword
+            ) ||
+            user.name
               .toLowerCase()
-              .includes(keyword) ||
-            username.includes(keyword)
+              .includes(keyword)
           )
-        );
-      })
-      .sort((a, b) =>
-        a[1].name.localeCompare(b[1].name)
       )
-      .forEach(([username, u]) => {
-        const dailyReports =
-          reports.filter(
-            (r) =>
-              r.username === username
-          );
+      .sort(
+        (a, b) =>
+          a[1].name.localeCompare(
+            b[1].name
+          )
+      )
+      .forEach(
+        ([username, user]) => {
+          const dailyReports =
+            reports
+              .filter(
+                (row) =>
+                  row.username === username
+              )
+              .sort(
+                (a, b) =>
+                  String(
+                    b.createdAt || ""
+                  ).localeCompare(
+                    String(
+                      a.createdAt || ""
+                    )
+                  )
+              );
 
-        const off =
-          statusRows.find(
-            (r) =>
-              r.username === username &&
-              r.status === "OFF"
-          );
-
-        if (dailyReports.length) {
-          const report =
-            dailyReports.sort(
-              (a, b) =>
-                b.createdAt.localeCompare(
-                  a.createdAt
-                )
-            )[0];
-
-          const total =
-            Math.min(
-              Number(report.total || 0),
-              100
+          const off =
+            statusRows.find(
+              (row) =>
+                row.username === username &&
+                row.status === "OFF"
             );
 
-          const kurang =
-            Math.max(0, 100 - total);
+          if (
+            dailyReports.length
+          ) {
+            const report =
+              dailyReports[0];
 
-          out.push([
-            date,
-            u.name,
-            username,
-            total >= 100
-              ? "100%"
-              : "Kurang",
-            total.toFixed(2),
-            kurang.toFixed(2),
-            report.time || ""
-          ]);
-        } else if (off) {
-          out.push([
-            date,
-            u.name,
-            username,
-            "OFF",
-            "",
-            "",
-            ""
-          ]);
-        } else {
-          out.push([
-            date,
-            u.name,
-            username,
-            "Belum Lapor",
-            "",
-            "",
-            ""
-          ]);
+            const total =
+              Math.min(
+                Number(
+                  report.total || 0
+                ),
+                100
+              );
+
+            const kurang =
+              Math.max(
+                0,
+                100 - total
+              );
+
+            output.push([
+              date,
+              user.name,
+              username,
+
+              total >= 100
+                ? "100%"
+                : "Kurang",
+
+              total.toFixed(2),
+              kurang.toFixed(2),
+              report.time || ""
+            ]);
+          } else if (off) {
+            output.push([
+              date,
+              user.name,
+              username,
+              "OFF",
+              "",
+              "",
+              ""
+            ]);
+          } else {
+            output.push([
+              date,
+              user.name,
+              username,
+              "Belum Lapor",
+              "",
+              "",
+              ""
+            ]);
+          }
         }
-      });
+      );
 
     downloadCSV(
       `ARC_Rekap_Pencapaian_${date}.csv`,
-      out
+      output
     );
   }
 }
 
 /* =========================
-   ARSIP
+   ARSIP SEMUA DATA
 ========================= */
 
 function exportAll() {
-  exportRaw("ARC_Arsip_Semua_Data.csv");
+  exportRaw(
+    "ARC_Arsip_Semua_Data.csv"
+  );
 }
 
 function exportRaw(filename) {
@@ -1363,63 +1962,82 @@ function exportRaw(filename) {
     ]
   ];
 
-  getStore("arcAttendance").forEach((r) => {
+  getStore(
+    "arcAttendance"
+  ).forEach((row) => {
     all.push([
       "Absensi",
-      r.date,
-      r.name,
+      row.date,
+      row.name,
       "Masuk",
-      r.time,
+      row.time,
       "",
       ""
     ]);
   });
 
-  getStore("arcCleaning").forEach((r) => {
+  getStore(
+    "arcCleaning"
+  ).forEach((row) => {
     all.push([
       "Kebersihan",
-      r.date,
-      r.name,
-      r.area,
-      r.time,
+      row.date,
+      row.name,
+      row.area,
+      row.time,
       "",
       ""
     ]);
   });
 
-  getStore("arcReports").forEach((r) => {
+  getStore(
+    "arcReports"
+  ).forEach((row) => {
+    const detail =
+      (row.jobs || [])
+        .map(
+          (job) =>
+            `${job.type} ${job.qty} SL ${job.note || ""}`
+        )
+        .join(" | ");
+
     all.push([
       "Laporan",
-      r.date,
-      r.name,
-
-      r.jobs
-        .map(
-          (j) =>
-            `${j.type} ${j.qty} SL ${j.note || ""}`
-        )
-        .join(" | "),
-
-      r.time,
-      r.total.toFixed(2),
-      r.lack.toFixed(2)
+      row.date,
+      row.name,
+      detail,
+      row.time,
+      Number(
+        row.total || 0
+      ).toFixed(2),
+      Number(
+        row.lack || 0
+      ).toFixed(2)
     ]);
   });
 
-  getDailyStatus().forEach((r) => {
-    all.push([
-      "Status Harian",
-      r.date,
-      r.name,
-      r.status,
-      "",
-      "",
-      ""
-    ]);
-  });
+  getDailyStatus()
+    .forEach((row) => {
+      all.push([
+        "Status Harian",
+        row.date,
+        row.name,
+        row.status,
+        "",
+        "",
+        ""
+      ]);
+    });
 
-  downloadCSV(filename, all);
+  downloadCSV(
+    filename,
+    all
+  );
 }
+
+/* =========================
+   RETENSI 6 BULAN
+========================= */
 
 function purgeOldData() {
   const keys = [
@@ -1432,24 +2050,29 @@ function purgeOldData() {
   let deleted = 0;
 
   keys.forEach((key) => {
-    const before = getStore(key);
+    const before =
+      getStore(key);
 
     const keep =
       before.filter(
-        (r) =>
+        (row) =>
           !isOlderThanRetention(
-            r.createdAt
+            row.createdAt
           )
       );
 
     deleted +=
-      before.length - keep.length;
+      before.length -
+      keep.length;
 
-    setStore(key, keep);
+    setStore(
+      key,
+      keep
+    );
   });
 
   alert(
-    `${deleted} data lebih dari ${RETENTION_MONTHS} bulan dihapus. Data staff tetap aman.`
+    `${deleted} data lebih dari ${RETENTION_MONTHS} bulan berhasil dihapus. Data staff tidak ikut terhapus.`
   );
 
   renderAdminSummary();
@@ -1457,72 +2080,117 @@ function purgeOldData() {
 }
 
 function renderRetentionInfo() {
-  const d = cutoffDate();
+  const d =
+    cutoffDate();
 
   const info =
     document.getElementById(
       "retentionInfo"
     );
 
-  if (info) {
-    info.textContent =
-      `Batas saat ini: data sebelum ${
-        d.toLocaleDateString(
-          "id-ID",
-          {
-            day: "2-digit",
-            month: "long",
-            year: "numeric"
-          }
-        )
-      } dapat dihapus.`;
-  }
+  if (!info) return;
+
+  info.textContent =
+    `Batas saat ini: data sebelum ${d.toLocaleDateString(
+      "id-ID",
+      {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      }
+    )} dapat dihapus.`;
 }
 
 /* =========================
-   SECURITY DISPLAY
+   ESCAPE HTML
 ========================= */
 
-function esc(s) {
-  return String(s ?? "").replace(
+function esc(value) {
+  return String(
+    value ?? ""
+  ).replace(
     /[&<>"']/g,
-    (m) =>
-      ({
+    function (char) {
+      const map = {
         "&": "&amp;",
         "<": "&lt;",
         ">": "&gt;",
         '"': "&quot;",
         "'": "&#039;"
-      })[m]
+      };
+
+      return map[char];
+    }
   );
 }
 
 /* =========================
-   START APP
+   START
 ========================= */
 
-(function () {
+(function startARC() {
   users = loadUsers();
 
   const saved =
-    localStorage.getItem("arcUser");
+    localStorage.getItem(
+      "arcUser"
+    );
 
   if (saved) {
     try {
       currentUser =
         JSON.parse(saved);
 
-      if (currentUser.role === "admin") {
-        showPage("adminPage");
-      } else {
-        showPage("dashboardPage");
+      /*
+       * Pastikan akun masih ada.
+       */
+      if (
+        currentUser &&
+        users[
+          currentUser.username
+        ]
+      ) {
+        currentUser = {
+          username:
+            currentUser.username,
+          ...users[
+            currentUser.username
+          ]
+        };
+
+        if (
+          currentUser.role ===
+          "admin"
+        ) {
+          showPage(
+            "adminPage"
+          );
+        } else {
+          showPage(
+            "dashboardPage"
+          );
+        }
+
+        return;
       }
-    } catch (e) {
-      showPage("loginPage");
+    } catch (error) {
+      console.error(
+        "Session error:",
+        error
+      );
     }
-  } else {
-    showPage("loginPage");
   }
+
+  localStorage.removeItem(
+    "arcUser"
+  );
+
+  currentUser = null;
+
+  showPage("loginPage");
 })();
 
-setInterval(refreshMeta, 30000);
+setInterval(
+  refreshMeta,
+  30000
+);
