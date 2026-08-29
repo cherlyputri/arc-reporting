@@ -2,10 +2,13 @@ const RETENTION_MONTHS = 6;
 
 const DEFAULT_USERS = {
   admin: { password: "admin123", name: "Admin ARC", role: "admin" },
-  hasan: { password: "123456", name: "Hasan", role: "staff" },
-  sani: { password: "123456", name: "Sani", role: "staff" },
-  arfah: { password: "123456", name: "Arfah", role: "staff" },
-  fuad: { password: "123456", name: "Fuad", role: "staff" }
+  hasan: { password: "123456", name: "Hasanudin", role: "staff" },
+  sani: { password: "123456", name: "Muh Tohir Arsyani", role: "staff" },
+  arfah: { password: "123456", name: "Muh Arfah", role: "staff" },
+  fuad: { password: "123456", name: "Muh Fuad Aprilamsyah", role: "staff" },
+  irsan: { password: "123456", name: "Irsan", role: "staff" },
+  fathur: { password: "123456", name: "Muhammad Fathurrahman", role: "staff" },
+  Rizky Arianto: { password: "123456", name: "Atok", role: "staff" }
 };
 
 let users = loadUsers();
