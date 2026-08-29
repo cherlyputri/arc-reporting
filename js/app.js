@@ -97,16 +97,101 @@ function saveDailyReport(){
 }
 
 async function copyAndOpenWA(type){
-  refreshMeta();const n=now(),name=currentUser?.name||'-';let text='';
-  if(type==='absen')text=`✅ ABSENSI MASUK\n\n👤 Nama: ${name}\n📅 Tanggal: ${n.date}\n🕐 Jam: ${n.time}\n\n📸 Foto kedatangan terlampir`;
-  if(type==='clean'){const area=document.getElementById('areaSelect').value;text=`🧹 LAPORAN KEBERSIHAN LAB\n\n👤 Nama: ${name}\n📍 Area: ${area}\n📅 Tanggal: ${n.date}\n🕐 Jam: ${n.time}\n\n📸 Foto area terlampir`}
-  if(type==='report'){
-    if(!jobs.length){alert('Tambahkan pekerjaan dulu.');return}
-    const total=Math.min(jobs.reduce((a,b)=>a+b.total,0),100),kurang=Math.max(0,100-total),detail=jobs.map(j=>`${j.type}\n${j.qty} SL = ${j.total.toFixed(2).replace('.',',')}%${j.note?`\n${j.note}`:''}`).join('\n\n');
-    text=`📝 LAPORAN HARIAN\n\n👤 Nama: ${name}\n📅 Tanggal: ${n.date}\n🕐 Jam: ${n.time}\n\n${detail}\n\n📊 TOTAL: ${total.toFixed(2).replace('.',',')}%\n⚠️ KURANG: ${kurang.toFixed(2).replace('.',',')}%\n\n📸 Foto lembar kerja terlampir`;
+  refreshMeta();
+
+  const n=now();
+  const name=currentUser?.name||'-';
+  let text='';
+  let photoInputId='';
+
+  if(type==='absen'){
+    photoInputId='absenPhoto';
+    text=`✅ ABSENSI MASUK
+
+👤 Nama: ${name}
+📅 Tanggal: ${n.date}
+🕐 Jam: ${n.time}
+
+📸 Foto kedatangan terlampir`;
   }
-  try{await navigator.clipboard.writeText(text)}catch(e){const ta=document.createElement('textarea');ta.value=text;document.body.appendChild(ta);ta.select();document.execCommand('copy');ta.remove()}
-  alert('Teks laporan sudah disalin. WhatsApp akan dibuka. Pilih grup kerja, paste teks, lalu kirim bersama foto.');
+
+  if(type==='clean'){
+    photoInputId='cleanPhoto';
+    const area=document.getElementById('areaSelect').value;
+    text=`🧹 LAPORAN KEBERSIHAN LAB
+
+👤 Nama: ${name}
+📍 Area: ${area}
+📅 Tanggal: ${n.date}
+🕐 Jam: ${n.time}
+
+📸 Foto area terlampir`;
+  }
+
+  if(type==='report'){
+    photoInputId='reportPhoto';
+    if(!jobs.length){alert('Tambahkan pekerjaan dulu.');return}
+    const total=Math.min(jobs.reduce((a,b)=>a+b.total,0),100);
+    const kurang=Math.max(0,100-total);
+    const detail=jobs.map(j=>`${j.type}
+${j.qty} SL = ${j.total.toFixed(2).replace('.',',')}%${j.note?`
+${j.note}`:''}`).join('
+
+');
+    text=`📝 LAPORAN HARIAN
+
+👤 Nama: ${name}
+📅 Tanggal: ${n.date}
+🕐 Jam: ${n.time}
+
+${detail}
+
+📊 TOTAL: ${total.toFixed(2).replace('.',',')}%
+⚠️ KURANG: ${kurang.toFixed(2).replace('.',',')}%
+
+📸 Foto lembar kerja terlampir`;
+  }
+
+  const input=document.getElementById(photoInputId);
+  const file=input?.files?.[0];
+  if(!file){
+    alert('Ambil atau pilih foto terlebih dahulu.');
+    return;
+  }
+
+  // Di HP yang mendukung Web Share API, foto + teks dibagikan bersama.
+  if(navigator.share){
+    try{
+      const shareData={
+        title:'ARC - Admin Reporting and Certification',
+        text:text
+      };
+
+      if(navigator.canShare && navigator.canShare({files:[file]})){
+        shareData.files=[file];
+      }
+
+      await navigator.share(shareData);
+      return;
+    }catch(err){
+      if(err && err.name==='AbortError') return;
+      console.warn('Web Share gagal, pakai fallback:',err);
+    }
+  }
+
+  // Fallback bila browser tidak mendukung berbagi file.
+  try{
+    await navigator.clipboard.writeText(text);
+  }catch(e){
+    const ta=document.createElement('textarea');
+    ta.value=text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    ta.remove();
+  }
+
+  alert('Browser ini belum mendukung berbagi foto + teks langsung. Teks sudah disalin. WhatsApp akan dibuka; tempel teks lalu lampirkan foto manual.');
   window.open('https://wa.me/','_blank');
 }
 
