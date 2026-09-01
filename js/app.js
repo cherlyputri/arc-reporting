@@ -4,8 +4,8 @@ const DEFAULT_USERS = {
   admin: { password: "admin123", name: "Admin ARC", role: "admin" },
   hasan: { password: "123456", name: "Hasanudin", role: "staff" },
   sani: { password: "123456", name: "Muh Tohir Arsyani", role: "staff" },
-  arfah: { password: "123456", name: "Haidir Idris", role: "staff" },
-  haidir: { password: "123456", name: "Muh Fuad Aprilamsyah", role: "staff" },
+  haidir: { password: "123456", name: "Haidir Idris", role: "staff" },
+  fuad: { password: "123456", name: "Muh Fuad Aprilamsyah", role: "staff" },
   irsan: { password: "123456", name: "Irsan", role: "staff" },
   fathur: { password: "123456", name: "Muhammad Fathurrahman", role: "staff" },
   atok: { password: "123456", name: "Rizky Arianto", role: "staff" }
