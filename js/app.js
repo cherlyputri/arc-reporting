@@ -9,7 +9,8 @@ const DEFAULT_USERS = {
   irsan: { password: "123456", name: "Irsan", role: "staff" },
   fathur: { password: "123456", name: "Muhammad Fathurrahman", role: "staff" },
   atok: { password: "123456", name: "Rizky Arianto", role: "staff" },
-  ikhram: { password: "123456", name: "Muhammad Ikram", role: "staff" }
+  ikhram: { password: "123456", name: "Muhammad Ikram", role: "staff" },
+  ashar: { password: "123456", name: "H Ashar Bahar", role: "staff" }
 };
 
 let users = loadUsers();
